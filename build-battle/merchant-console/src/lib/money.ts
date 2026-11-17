@@ -22,6 +22,19 @@ export function formatMoney(minorUnits: number, currency: Currency): string {
   return `${negative ? "-" : ""}${SYMBOLS[currency]}${body}`
 }
 
+/**
+ * Plain decimal for spreadsheet export: 25000 -> "250.00". No symbol and no
+ * grouping, so the cell parses as a number. The currency sits in its own column.
+ * Integer arithmetic only, so no float is involved.
+ */
+export function formatMinorUnitsPlain(minorUnits: number): string {
+  const negative = minorUnits < 0
+  const abs = Math.abs(minorUnits)
+  const whole = Math.floor(abs / 100)
+  const cents = String(abs % 100).padStart(2, "0")
+  return `${negative ? "-" : ""}${whole}.${cents}`
+}
+
 /** Compact form for stat cards: $12.4k. Display only. */
 export function formatMoneyCompact(
   minorUnits: number,

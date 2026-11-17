@@ -11,12 +11,29 @@ const STATUSES: readonly (PaymentStatus | "all")[] = [
   "disputed",
 ]
 
+// A calendar date, optionally with a UTC time: 2026-03-14 or 2026-03-14T10:15:00Z.
+const DATE_PARAM = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?Z)?$/
+
+/**
+ * Returns the value only if it is a well-formed UTC date. Anything else is
+ * dropped, so it never reaches a string comparison against createdAt.
+ */
+function parseDateParam(value: string | null): string | undefined {
+  if (!value || !DATE_PARAM.test(value) || Number.isNaN(Date.parse(value))) {
+    return undefined
+  }
+  return value
+}
+
 /**
  * Anything from the client is checked against an allowlist before it reaches
- * a query. Route handlers call this rather than reading params themselves.
+ * a query. Unknown values are dropped, the same way an unknown status is, so a
+ * bad parameter widens the result rather than failing or reaching the query.
+ * Route handlers call this rather than reading params themselves.
  */
 export function parseFilters(params: URLSearchParams): PaymentFilters {
   const status = params.get("status")
+  const merchantId = params.get("merchantId")
   const sort = params.get("sort")
   const direction = params.get("direction")
   const page = Number(params.get("page") ?? "1")
@@ -25,10 +42,10 @@ export function parseFilters(params: URLSearchParams): PaymentFilters {
     status: STATUSES.includes(status as PaymentStatus)
       ? (status as PaymentStatus)
       : "all",
-    merchantId: params.get("merchantId") ?? undefined,
+    merchantId: merchantId && merchantById(merchantId) ? merchantId : undefined,
     search: params.get("search") ?? undefined,
-    from: params.get("from") ?? undefined,
-    to: params.get("to") ?? undefined,
+    from: parseDateParam(params.get("from")),
+    to: parseDateParam(params.get("to")),
     page: Number.isFinite(page) && page > 0 ? page : 1,
     sort: sort === "amount" ? "amount" : "createdAt",
     direction: direction === "asc" ? "asc" : "desc",

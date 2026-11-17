@@ -1,13 +1,12 @@
 import { merchantById } from "@/data/merchants"
 import { Payment } from "@/data/types"
-import { formatMoney } from "./money"
+import { formatMinorUnitsPlain } from "./money"
 
 /**
  * CSV export for the payments table.
  *
- * The column set is fixed. Ops has asked for control over it — that is
- * NWP-101 — but today everyone gets every column, including the card
- * last four, whether or not the file is going to a merchant.
+ * Ops chooses the columns (NWP-101). The card last four is excluded by default,
+ * because files go to merchants and the last four should only ship on request.
  */
 
 export const EXPORT_COLUMNS = [
@@ -24,6 +23,27 @@ export const EXPORT_COLUMNS = [
 ] as const
 
 export type ExportColumn = (typeof EXPORT_COLUMNS)[number]
+
+/** Every column except the card last four. Used when the request names none. */
+export const EXPORT_DEFAULT_COLUMNS: readonly ExportColumn[] =
+  EXPORT_COLUMNS.filter((column) => column !== "last4")
+
+/**
+ * Parses the `columns` query parameter. Returns the requested columns in the
+ * order given, with duplicates dropped. An absent parameter gets the default
+ * set. Returns null for an empty list or any name outside the allowlist.
+ * The route turns null into a 400.
+ */
+export function parseExportColumns(raw: string | null): ExportColumn[] | null {
+  if (raw === null) return [...EXPORT_DEFAULT_COLUMNS]
+
+  const requested = raw.split(",").map((part) => part.trim())
+  const allowed = new Set<string>(EXPORT_COLUMNS)
+  if (requested.some((name) => !allowed.has(name))) return null
+
+  const unique = [...new Set(requested)] as ExportColumn[]
+  return unique.length > 0 ? unique : null
+}
 
 function escapeCell(value: string): string {
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
@@ -49,7 +69,7 @@ function cell(payment: Payment, column: ExportColumn): string {
     case "last4":
       return payment.last4 ?? ""
     case "amount":
-      return formatMoney(payment.amount, payment.currency)
+      return formatMinorUnitsPlain(payment.amount)
     case "currency":
       return payment.currency
   }
@@ -66,6 +86,10 @@ export function toCsv(
   return [header, ...rows].join("\n")
 }
 
-export function exportFilename(date = new Date()): string {
-  return `payments-${date.toISOString().slice(0, 10)}.csv`
+/**
+ * `scope` is a label the route has already checked against its allowlist:
+ * a payment status, "filtered", or "all". Date is UTC.
+ */
+export function exportFilename(scope: string, date = new Date()): string {
+  return `payments-${scope}-${date.toISOString().slice(0, 10)}.csv`
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  formatMinorUnitsPlain,
   formatMoney,
   formatMoneyCompact,
   parseAmountToMinorUnits,
@@ -30,6 +31,19 @@ describe("formatMoney", () => {
   it("uses the right symbol per currency", () => {
     expect(formatMoney(1000, "EUR")).toBe("€10.00")
     expect(formatMoney(1000, "GBP")).toBe("£10.00")
+  })
+})
+
+describe("formatMinorUnitsPlain", () => {
+  it("renders a plain decimal with no symbol or grouping", () => {
+    expect(formatMinorUnitsPlain(25000)).toBe("250.00")
+    expect(formatMinorUnitsPlain(123456789)).toBe("1234567.89")
+    expect(formatMinorUnitsPlain(1)).toBe("0.01")
+    expect(formatMinorUnitsPlain(0)).toBe("0.00")
+  })
+
+  it("keeps the sign on refunds", () => {
+    expect(formatMinorUnitsPlain(-4200)).toBe("-42.00")
   })
 })
 
